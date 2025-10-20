@@ -8,13 +8,13 @@
   const ctx = canvas.getContext('2d');
   const scoreEl = document.getElementById('score');
 
-  const AUTHOR = 'JavaScript by Aileen';
+  const AUTHOR = ' '; 
   const HS_KEY = 'snake_high_score_v3';
 
-  // Grid
-  const TILE = 20;
-  const COLS = Math.floor(canvas.width / TILE);
-  const ROWS = Math.floor(canvas.height / TILE);
+  // Grid (responsive)
+  let TILE = 20;      // logical tile size (auto-computed)
+  let COLS = 30;      // target logical cols (approx); will adjust to fit
+  let ROWS = 20;      // target logical rows (approx); will adjust to fit
 
   // Colors (game rendering — UI colors come from CSS)
   const COLORS = {
@@ -47,7 +47,7 @@
   ];
 
   // Snake movement speeds (ms per step)
-  const SPEEDS = { slow: 160, medium: 120, fast: 80 };
+  const SPEEDS = { slow: 190, medium: 130, fast: 80 };
   let speedPreset = 'medium';
   let tickMs = SPEEDS[speedPreset];
   const MIN_TICK = 55;
@@ -164,6 +164,67 @@
   }
   function weightedPick(types){const total=types.reduce((s,t)=>s+t.weight,0); let r=Math.random()*total; for(const t of types){if((r-=t.weight)<=0) return t;} return types[0];}
 
+  // ---------- Responsive canvas sizing ----------
+  function fitCanvas() {
+    // Desired aspect roughly matches 600x400 (3:2)
+    const aspect = 3 / 2;
+
+    // Use the cabinet/container width if available; else viewport
+    const container = canvas.parentElement || document.body;
+
+    // CSS pixels available
+    const maxW = Math.min(container.clientWidth || window.innerWidth, 900);
+    const maxH = Math.min(window.innerHeight - 140, 700); // leave some room for UI
+    let cssW = maxW, cssH = Math.floor(maxW / aspect);
+    if (cssH > maxH) { cssH = maxH; cssW = Math.floor(maxH * aspect); }
+
+    // High-DPI crispness
+    const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+    canvas.style.width  = cssW + 'px';
+    canvas.style.height = cssH + 'px';
+    canvas.width  = Math.floor(cssW * dpr);
+    canvas.height = Math.floor(cssH * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); // draw in CSS pixels
+
+    // Recompute grid to fit the CSS size nicely
+    // Prefer ~30x20 cells; choose TILE so we keep whole tiles
+    const tileByW = Math.max(12, Math.floor(cssW / 30));
+    const tileByH = Math.max(12, Math.floor(cssH / 20));
+    TILE = Math.max(12, Math.min(tileByW, tileByH)); // make tiles bigger/smaller to fit
+    COLS = Math.floor(cssW / TILE);
+    ROWS = Math.floor(cssH / TILE);
+
+    // Keep everyone in-bounds after a resize
+    clampEntitiesToBounds();
+  }
+
+  function clampEntitiesToBounds() {
+    const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+    if (Array.isArray(snake)) {
+      for (const s of snake) {
+        s.x = clamp(s.x, 0, COLS - 1);
+        s.y = clamp(s.y, 0, ROWS - 1);
+      }
+    }
+    if (Array.isArray(foods)) {
+      for (const f of foods) {
+        f.x = clamp(f.x, 0, COLS - 1);
+        f.y = clamp(f.y, 0, ROWS - 1);
+        // make sure food step timing still sane after TILE/COLS change
+        const base = FOOD_WANDER.typeSpeed[f.name] ?? FOOD_WANDER.baseMoveEvery;
+        f.moveEvery = Math.max(3, Math.round(base * foodSpeedFactor));
+        f.moveCounter = 0;
+      }
+    }
+  }
+
+  window.addEventListener('resize', () => { fitCanvas(); if (mode === 'paused') drawPause(); else draw(); });
+  window.addEventListener('orientationchange', () => { setTimeout(() => { fitCanvas(); draw(); }, 120); });
+  document.addEventListener('visibilitychange', () => {
+    // auto-pause when tab hidden, resume stays manual
+    if (document.hidden && mode === 'playing') { togglePause(); }
+  });
+
   // ---------- Init & Start ----------
   function init(){
     const startX=Math.floor(COLS/2), startY=Math.floor(ROWS/2);
@@ -176,11 +237,13 @@
     lastFoodShuffleAt=performance.now();
   }
   function startGame(){
+    fitCanvas();
     init(); mode='playing';
     tickMs=SPEEDS[speedPreset]||SPEEDS.medium;
     clearInterval(timerId); timerId=setInterval(gameTick,tickMs);
     sfxStart(); draw();
   }
+
   function updateScore(){
     if(scoreEl) scoreEl.textContent=`Score: ${score}`;
     // also update optional "Best" badge in DOM if present
@@ -310,6 +373,30 @@
     else if (k === 'm') { setMuted(!isMuted); }
   });
 
+  // ---------- Touch swipe controls ----------
+  let touchStart = null;
+  canvas.addEventListener('touchstart', (e) => {
+    const t = e.changedTouches[0];
+    touchStart = { x: t.clientX, y: t.clientY };
+  }, { passive: true });
+
+  canvas.addEventListener('touchend', (e) => {
+    if (!touchStart) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - touchStart.x;
+    const dy = t.clientY - touchStart.y;
+    touchStart = null;
+    if (Math.abs(dx) < 12 && Math.abs(dy) < 12) return;
+
+    const horiz = Math.abs(dx) > Math.abs(dy);
+    const nd = horiz ? { x: Math.sign(dx), y: 0 } : { x: 0, y: Math.sign(dy) };
+    // prevent instant reversal
+    if (!(nd.x === -dir.x && nd.y === -dir.y)) nextDir = nd;
+
+    // on title, a swipe should also start the game
+    if (mode === 'title') startGame();
+  }, { passive: true });
+
   function applySpeed(preset){
     speedPreset=preset; tickMs=SPEEDS[preset]||SPEEDS.medium;
     if(mode==='playing'){ clearInterval(timerId); timerId=setInterval(gameTick,tickMs); }
@@ -371,12 +458,20 @@
 
   // ---------- Render ----------
   function draw(){
-    ctx.fillStyle=COLORS.bg; ctx.fillRect(0,0,canvas.width,canvas.height);
+    // Compute CSS-pixel extents; the current transform from fitCanvas()
+    // maps 1 unit = 1 CSS pixel (scaled by DPR under the hood).
+    const cssW = canvas.clientWidth || parseInt(getComputedStyle(canvas).width, 10);
+    const cssH = canvas.clientHeight || parseInt(getComputedStyle(canvas).height, 10);
+
+    // Background
+    ctx.fillStyle=COLORS.bg; ctx.fillRect(0,0,cssW,cssH);
+
     if(mode==='title'){ drawTitle(); return; }
 
+    // Grid lines across CSS space
     ctx.strokeStyle=COLORS.grid; ctx.lineWidth=1;
-    for(let x=TILE;x<canvas.width;x+=TILE){ ctx.beginPath(); ctx.moveTo(x+0.5,0); ctx.lineTo(x+0.5,canvas.height); ctx.stroke(); }
-    for(let y=TILE;y<canvas.height;y+=TILE){ ctx.beginPath(); ctx.moveTo(0,y+0.5); ctx.lineTo(canvas.width,y+0.5); ctx.stroke(); }
+    for(let x=TILE;x<cssW;x+=TILE){ ctx.beginPath(); ctx.moveTo(x+0.5,0); ctx.lineTo(x+0.5,cssH); ctx.stroke(); }
+    for(let y=TILE;y<cssH;y+=TILE){ ctx.beginPath(); ctx.moveTo(0,y+0.5); ctx.lineTo(cssW,y+0.5); ctx.stroke(); }
 
     for(const f of foods) drawFood(f);
 
@@ -386,7 +481,6 @@
     drawScoreHUD();
     drawAttribution();
 
-    // IMPORTANT CHANGE: removed auto-call to drawPause() here to avoid recursion.
     if(mode==='exploding' && explosion) drawExplosionOverlay();
   }
 
@@ -426,9 +520,14 @@
   }
   function drawExplosionOverlay(){
     if(!explosion) return;
+
+    // Use CSS extents for overlay fill
+    const cssW = canvas.clientWidth || parseInt(getComputedStyle(canvas).width, 10);
+    const cssH = canvas.clientHeight || parseInt(getComputedStyle(canvas).height, 10);
+
     const t=explosion.frame/explosion.maxFrames; // 0..1
     const alpha=0.8*(1-t);
-    ctx.fillStyle=`rgba(255,180,80,${alpha*0.6})`; ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle=`rgba(255,180,80,${alpha*0.6})`; ctx.fillRect(0,0,cssW,cssH);
     const r=6+t*28;
     ctx.fillStyle=COLORS.explosionCore; ctx.beginPath(); ctx.arc(explosion.x,explosion.y,r*0.5,0,Math.PI*2); ctx.fill();
     ctx.strokeStyle=COLORS.explosionRing; ctx.lineWidth=4; ctx.beginPath(); ctx.arc(explosion.x,explosion.y,r,0,Math.PI*2); ctx.stroke();
@@ -472,50 +571,75 @@
   }
 
   // --- HUDs ---
-  function drawEatPulse(cxCell,cyCell){
-    const px=cxCell*TILE+TILE/2, py=cyCell*TILE+TILE/2;
-    ctx.beginPath(); ctx.arc(px,py,7,0,Math.PI*2); ctx.fillStyle='rgba(255,255,255,0.16)'; ctx.fill();
+  function drawEatPulse(cxCell, cyCell){
+    const px = cxCell * TILE + TILE / 2, py = cyCell * TILE + TILE / 2;
+    ctx.beginPath(); ctx.arc(px, py, 7, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.16)'; ctx.fill();
   }
-  function drawScoreHUD(){
-    const txt=`Score: ${score}   Best: ${highScore}`;
-    ctx.save(); ctx.font='12px "Press Start 2P", monospace'; ctx.textAlign='left'; ctx.textBaseline='top';
-    const padX=8,padY=6; const w=ctx.measureText(txt).width+padX*2, h=20+padY*2, x=8,y=8;
-    ctx.fillStyle='rgba(0,0,0,0.45)';
-    const r=8; ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
-    ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); ctx.fill();
-    ctx.fillStyle='rgba(255,255,255,0.9)'; ctx.fillText(txt, x+padX, y+padY+4);
-    if(newBestFlashTicks>0){ const a=Math.max(0,Math.min(1,newBestFlashTicks/60)); ctx.fillStyle=`rgba(255,213,74,${a})`;
-      ctx.textAlign='center'; ctx.fillText('NEW BEST!', x+w/2, y+h+6); }
-    ctx.restore();
-  }
-  function drawAttribution(){ ctx.save(); ctx.font='10px "Press Start 2P", monospace'; ctx.fillStyle='rgba(255,255,255,0.7)'; ctx.textAlign='right'; ctx.textBaseline='bottom'; ctx.fillText(AUTHOR, canvas.width-6, canvas.height-6); ctx.restore(); }
 
-  // --- Title / Pause / Game Over ---
-  function drawTitle(){
-    ctx.fillStyle=COLORS.bg; ctx.fillRect(0,0,canvas.width,canvas.height);
-    ctx.fillStyle=COLORS.text; ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.font='24px "Press Start 2P", monospace'; ctx.fillText('SNAKE.IO', canvas.width/2, canvas.height/2-60);
-    ctx.font='12px "Press Start 2P", monospace';
-    ctx.fillText(`Best: ${highScore}`, canvas.width/2, canvas.height/2-24);
-    ctx.fillText(`Current Speed: ${speedPreset.toUpperCase()}  (1/2/3 to change)`, canvas.width/2, canvas.height/2+6);
-    ctx.fillText(`M: Mute/Unmute   •   [ / ]: Food wander`, canvas.width/2, canvas.height/2+28);
-    ctx.font='14px "Press Start 2P", monospace'; ctx.fillText('Press ANY key to start', canvas.width/2, canvas.height/2+64);
-  }
-  function drawPause(){
-    // NOTE: no call to draw() here; pause is drawn only when explicitly invoked
-    ctx.save(); ctx.fillStyle='rgba(0,0,0,0.6)'; ctx.fillRect(0,0,canvas.width,canvas.height);
-    const pw=Math.min(520,canvas.width-40), ph=320, px=(canvas.width-pw)/2, py=(canvas.height-ph)/2;
-    roundRect(ctx,px,py,pw,ph,12,true,false); ctx.fillStyle=COLORS.panel; ctx.fill(); ctx.lineWidth=2; ctx.strokeStyle=COLORS.panelBorder; ctx.stroke();
-    ctx.fillStyle=COLORS.text; ctx.textAlign='center'; ctx.textBaseline='top'; ctx.font='20px "Press Start 2P", monospace'; ctx.fillText('PAUSED', canvas.width/2, py+14);
-    ctx.font='12px "Press Start 2P", monospace'; ctx.fillText(`Score: ${score}    Best: ${highScore}`, canvas.width/2, py+48);
-    drawPauseLegend(px+22, py+76);
-    ctx.textAlign='left';
-    ctx.fillText('Foods shuffle and can spawn unexpectedly.', px+22, py+ph-96);
-    ctx.fillText(`Food wander: ${foodSpeedFactor.toFixed(1)}x   ([ slower, ] faster)`, px+22, py+ph-76);
-    ctx.fillText('Speed: 1 = Slow   2 = Medium   3 = Fast', px+22, py+ph-56);
-    ctx.fillText('Controls: Arrow Keys / WASD • Space: Resume • Enter: Restart • M: Mute', px+22, py+ph-36);
+  function drawScoreHUD(){
+    const txt = `Score: ${score}   Best: ${highScore}`;
+
+    // Draw in pure CSS pixel space (reset transform)
+    const cssW = canvas.clientWidth || parseInt(getComputedStyle(canvas).width, 10);
+    const cssH = canvas.clientHeight || parseInt(getComputedStyle(canvas).height, 10);
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+    // Font & layout (responsive to TILE)
+    const base = Math.max(10, Math.floor(TILE * 0.6));
+    ctx.font = `${base}px "Press Start 2P", monospace`;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+
+    const padX = 8, padY = 6, x = 8, y = 8;
+    const m = ctx.measureText(txt);
+    const textH = (m.actualBoundingBoxAscent ?? base) + (m.actualBoundingBoxDescent ?? Math.floor(base * 0.3));
+    const w = Math.ceil(m.width + padX * 2);
+    const h = Math.ceil(textH + padY * 2);
+
+    // Panel (rounded)
+    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    const r = 8;
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y,         x + w, y + h, r);
+    ctx.arcTo(x + w, y + h,     x,     y + h, r);
+    ctx.arcTo(x,     y + h,     x,     y,     r);
+    ctx.arcTo(x,     y,         x + w, y,     r);
+    ctx.closePath();
+    ctx.fill();
+
+    // Text
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.fillText(txt, x + padX, y + padY + 4);
+
+    // NEW BEST badge
+    if (newBestFlashTicks > 0) {
+      const a = Math.max(0, Math.min(1, newBestFlashTicks / 60));
+      ctx.fillStyle = `rgba(255,213,74,${a})`;
+      ctx.textAlign = 'center';
+      ctx.fillText('NEW BEST!', x + w / 2, y + h + 6);
+    }
+
     ctx.restore();
   }
+
+  function drawAttribution(){
+    // Draw in CSS-pixel space too (reset transform)
+    const cssW = canvas.clientWidth || parseInt(getComputedStyle(canvas).width, 10);
+    const cssH = canvas.clientHeight || parseInt(getComputedStyle(canvas).height, 10);
+
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.font = '10px "Press Start 2P", monospace';
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText(AUTHOR, cssW - 6, cssH - 6);
+    ctx.restore();
+  }
+
   function drawPauseLegend(x,y){
     ctx.fillStyle=COLORS.grass; ctx.fillRect(x,y+2,12,12);
     ctx.fillStyle=COLORS.text; ctx.font='12px "Press Start 2P", monospace'; ctx.textAlign='left'; ctx.fillText('+1  (Green Food)', x+18, y);
@@ -524,13 +648,18 @@
     ctx.fillStyle='#ff3030'; ctx.fillRect(x,y+50,12,12);
     ctx.fillStyle=COLORS.text; ctx.fillText('KO  (Red Bomb)', x+18, y+48);
   }
+
   function drawGameOver(reason){
+    // Use CSS extents for layout
+    const cssW = canvas.clientWidth || parseInt(getComputedStyle(canvas).width, 10);
+    const cssH = canvas.clientHeight || parseInt(getComputedStyle(canvas).height, 10);
+
     const title=reason||'GAME OVER', tip='Enter: restart • Space: pause menu';
-    ctx.save(); ctx.fillStyle=COLORS.shadow; ctx.fillRect(0,0,canvas.width,canvas.height);
-    const pw=Math.min(480,canvas.width-40), ph=240, px=(canvas.width-pw)/2, py=(canvas.height-ph)/2;
+    ctx.save(); ctx.fillStyle=COLORS.shadow; ctx.fillRect(0,0,cssW,cssH);
+    const pw=Math.min(480,cssW-40), ph=240, px=(cssW-pw)/2, py=(cssH-ph)/2;
     roundRect(ctx,px,py,pw,ph,12,true,false); ctx.fillStyle=COLORS.panel; ctx.fill(); ctx.lineWidth=2; ctx.strokeStyle=COLORS.panelBorder; ctx.stroke();
-    ctx.fillStyle=COLORS.text; ctx.textAlign='center'; ctx.textBaseline='top'; ctx.font='18px "Press Start 2P", monospace'; ctx.fillText(title, canvas.width/2, py+18);
-    ctx.font='12px "Press Start 2P", monospace'; ctx.fillText(`Final Score: ${score}    Best: ${highScore}`, canvas.width/2, py+58); ctx.fillText(tip, canvas.width / 2, py+84);
+    ctx.fillStyle=COLORS.text; ctx.textAlign='center'; ctx.textBaseline='top'; ctx.font='18px "Press Start 2P", monospace'; ctx.fillText(title, cssW/2, py+18);
+    ctx.font='12px "Press Start 2P", monospace'; ctx.fillText(`Final Score: ${score}    Best: ${highScore}`, cssW/2, py+58); ctx.fillText(tip, cssW / 2, py+84);
     drawPauseLegend(px+22, py+112); ctx.restore();
   }
 
@@ -541,6 +670,52 @@
     if(fill) ctx.fill(); if(stroke) ctx.stroke();
   }
 
+  // --- Title screen ---
+  function drawTitle(){
+    const cssW = canvas.clientWidth || parseInt(getComputedStyle(canvas).width, 10);
+    const cssH = canvas.clientHeight || parseInt(getComputedStyle(canvas).height, 10);
+
+    // background already filled in draw(); just add title UI
+    const title='SNAKE.io';
+    ctx.save();
+    const pw=Math.min(540,cssW-40), ph=280, px=(cssW-pw)/2, py=(cssH-ph)/2;
+    roundRect(ctx,px,py,pw,ph,12,true,false); ctx.fillStyle=COLORS.panel; ctx.fill(); ctx.lineWidth=2; ctx.strokeStyle=COLORS.panelBorder; ctx.stroke();
+
+    ctx.fillStyle=COLORS.text; ctx.textAlign='center'; ctx.textBaseline='top';
+    ctx.font='22px "Press Start 2P", monospace'; ctx.fillText(title, cssW/2, py+18);
+
+    ctx.font='12px "Press Start 2P", monospace';
+    ctx.fillText('Press any key or swipe to start', cssW/2, py+58);
+    ctx.fillText('1/2/3: speed   Space: pause   M: mute', cssW/2, py+78);
+    ctx.fillText('Arrows / WASD / Swipe to move', cssW/2, py+98);
+
+    drawPauseLegend(px+22, py+132);
+    ctx.restore();
+  }
+
+  // --- Pause screen (uses current transform = CSS px as well) ---
+  function drawPause(){
+    const cssW = canvas.clientWidth || parseInt(getComputedStyle(canvas).width, 10);
+    const cssH = canvas.clientHeight || parseInt(getComputedStyle(canvas).height, 10);
+
+    ctx.save(); ctx.fillStyle=COLORS.shadow; ctx.fillRect(0,0,cssW,cssH);
+    const pw=Math.min(520,cssW-40), ph=260, px=(cssW-pw)/2, py=(cssH-ph)/2;
+    roundRect(ctx,px,py,pw,ph,12,true,false); ctx.fillStyle=COLORS.panel; ctx.fill(); ctx.lineWidth=2; ctx.strokeStyle=COLORS.panelBorder; ctx.stroke();
+    ctx.fillStyle=COLORS.text; ctx.textAlign='center'; ctx.textBaseline='top';
+    ctx.font='18px "Press Start 2P", monospace'; ctx.fillText('PAUSED', cssW/2, py+18);
+    ctx.font='12px "Press Start 2P", monospace';
+    ctx.fillText('Space: resume   Enter: restart', cssW/2, py+56);
+    ctx.fillText('1/2/3: change speed   M: mute', cssW/2, py+76);
+    drawPauseLegend(px+22, py+112);
+    ctx.restore();
+  }
+
   // --- Boot: show title screen
-  (function boot(){ snake=[{x:0,y:0}]; foods=[spawnFood(false)]; drawTitle(); })();
+  (function boot(){
+    fitCanvas();
+    snake=[{x:0,y:0}];
+    foods=[spawnFood(false)];
+    drawTitle();
+  })();
+
 })();
