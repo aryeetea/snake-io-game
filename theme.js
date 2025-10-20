@@ -4,19 +4,18 @@
   const select = document.getElementById('themeSelect');
   const body = document.body;
 
-  // Set initial theme from storage (fallback: blueberry)
-  const saved = localStorage.getItem(KEY) || 'theme-blueberry';
-  body.classList.remove('theme-blueberry', 'theme-butterscotch');
-  body.classList.add(saved);
-  if (select) select.value = saved;
+  // Restore saved theme
+  const saved = localStorage.getItem('snake_theme');
+  if (saved) body.className = saved;
 
-  // Handle changes
-  if (select) {
-    select.addEventListener('change', () => {
-      const theme = select.value;
-      body.classList.remove('theme-blueberry', 'theme-butterscotch');
-      body.classList.add(theme);
-      localStorage.setItem(KEY, theme);
-    });
+  // Ensure select shows current theme
+  const current = body.className || 'theme-blueberry';
+  if ([...select.options].some(o => o.value === current)) {
+    select.value = current;
   }
+
+  select.addEventListener('change', () => {
+    body.className = select.value;
+    localStorage.setItem('snake_theme', select.value);
+  });
 })();

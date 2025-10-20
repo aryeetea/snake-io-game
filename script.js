@@ -16,24 +16,6 @@
   const COLS = Math.floor(canvas.width / TILE);
   const ROWS = Math.floor(canvas.height / TILE);
 
-  // === Responsive scaling ===
-const LOGICAL_W = 600, LOGICAL_H = 400;
-function fitCanvas() {
-  const cssWidth = Math.min(window.innerWidth - 20, 600);
-  const scale = cssWidth / LOGICAL_W;
-  const dpr = window.devicePixelRatio || 1;
-
-  canvas.style.width = cssWidth + 'px';
-  canvas.style.height = (LOGICAL_H * scale) + 'px';
-  canvas.width = LOGICAL_W * dpr;
-  canvas.height = LOGICAL_H * dpr;
-
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-}
-fitCanvas();
-window.addEventListener('resize', fitCanvas);
-window.addEventListener('orientationchange', fitCanvas);
-
   // Colors (game rendering — UI colors come from CSS)
   const COLORS = {
     bg: '#111',
@@ -562,31 +544,3 @@ window.addEventListener('orientationchange', fitCanvas);
   // --- Boot: show title screen
   (function boot(){ snake=[{x:0,y:0}]; foods=[spawnFood(false)]; drawTitle(); })();
 })();
-// === Touch Swipe Controls for Mobile ===
-let touchStart = null;
-canvas.addEventListener("touchstart", (e) => {
-  const t = e.changedTouches[0];
-  touchStart = { x: t.clientX, y: t.clientY, t: Date.now() };
-}, { passive: true });
-
-canvas.addEventListener("touchend", (e) => {
-  if (!touchStart) return;
-  const t = e.changedTouches[0];
-  const dx = t.clientX - touchStart.x;
-  const dy = t.clientY - touchStart.y;
-  const dt = Date.now() - touchStart.t;
-  touchStart = null;
-
-  const SWIPE_MIN = 30; // minimum swipe distance
-  if (dt > 500) return; // ignore long presses
-
-  if (Math.abs(dx) > Math.abs(dy)) {
-    // horizontal
-    if (dx > SWIPE_MIN) queueDir(1, 0);
-    else if (dx < -SWIPE_MIN) queueDir(-1, 0);
-  } else {
-    // vertical
-    if (dy > SWIPE_MIN) queueDir(0, 1);
-    else if (dy < -SWIPE_MIN) queueDir(0, -1);
-  }
-});

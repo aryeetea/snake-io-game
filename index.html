@@ -2,7 +2,7 @@
 <html lang="en" class="no-js">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Snake.io by Nicole</title>
 
   <!-- Retro Google Font -->
@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 
+<!-- Default class is just a fallback; theme.js will set the saved one -->
 <body class="theme-blueberry">
   <div class="container">
     <h1>🐍 Snake.io by Nicole 🐍</h1>
@@ -21,6 +22,7 @@
       <span class="badge"><span class="dot pink"></span><span id="score">Score: 0</span></span>
       <span class="badge"><span class="dot lilac"></span><span id="best">Best: 0</span></span>
 
+      <!-- Theme picker (tailored to your picks: Blueberry / Butterscotch) -->
       <label class="theme-switch badge" for="themeSelect" title="Change theme">
         <span class="dot sage"></span>
         Theme:
@@ -39,13 +41,13 @@
     </div>
 
     <div class="footer">
-      Pause: Space • Speed: 1/2/3 • Mute: M • Food wander: [ / ] • Swipe to move
+      Pause: Space • Speed: 1/2/3 • Mute: M • Food wander: [ / ]
     </div>
   </div>
 
   <!-- Game logic -->
   <script src="script.js"></script>
-  <!-- Theme toggler -->
+  <!-- Tiny theme toggler -->
   <script src="theme.js"></script>
 </body>
 </html>
