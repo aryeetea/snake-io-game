@@ -1,262 +1,46 @@
-/* =========================
-   Vintage–Cute Theme (Snake.io)
-   Palettes:
-   - theme-blueberry  (🫐 powder blue / lilac / ivory)
-   - theme-butterscotch (🌼 beige / butterscotch / faded teal)
-   ========================= */
-
-/* Base tokens */
-:root{
-  --ink: #2f2a2a;
-  --muted: #746b63;
-
-  --glass: rgba(255,255,255,0.6);
-  --glass-strong: rgba(255,255,255,0.75);
-
-  --shadow-strong: 0 18px 40px rgba(0,0,0,0.18);
-  --shadow-soft:   0 10px 24px rgba(0,0,0,0.14);
-
-  --edge:    rgba(255,255,255,0.92);
-  --outline: rgba(108, 83, 147, 0.30);
-
-  --cabinet-scanline-light: rgba(255,255,255,0.05);
-  --cabinet-scanline-dark:  rgba(0,0,0,0.05);
+/* layout */
+:root { --pad: 12px; }
+body { margin: 0; font-family: "Press Start 2P", monospace; }
+.container {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: var(--pad);
 }
-
-/* -----------------------------
-   PALETTE: BLUEBERRY DREAM 🫐
-   ----------------------------- */
-body.theme-blueberry{
-  --paper-1: #fcfbf7;
-  --paper-2: #f1f6ff;
-
-  --rose:  #8fb3ff;   /* periwinkle blue */
-  --lilac: #b7a7ff;   /* lavender-lilac */
-  --sage:  #c9e6ff;   /* ice blue for dots */
-
-  --bezel-1: #f3f7ff;
-  --bezel-2: #eef0ff;
-}
-
-/* -----------------------------
-   PALETTE: BUTTERSCOTCH 🌼
-   ----------------------------- */
-body.theme-butterscotch{
-  --paper-1: #fbf5e9;
-  --paper-2: #f4ecd9;
-
-  --rose:  #f3c46f;   /* butterscotch gold */
-  --lilac: #7bb8a9;   /* faded teal accent */
-  --sage:  #d9e2b6;   /* pale green for dots */
-
-  --bezel-1: #fff6e4;
-  --bezel-2: #f6f0e1;
-}
-
-/* Reset-ish */
-* { box-sizing: border-box; }
-html, body { height: 100%; }
-body{
-  margin: 0;
-  color: var(--ink);
-  font-family: "Press Start 2P", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-  background:
-    radial-gradient(1800px 1200px at -10% -20%, #fffaf5 0%, transparent 60%),
-    radial-gradient(1500px 1000px at 120% 20%, #f8f3ff 0%, transparent 60%),
-    linear-gradient(180deg, var(--paper-1), var(--paper-2));
-  overflow-x: hidden;
-}
-
-/* Paper grain */
-body::before{
-  content:"";
-  position:fixed; inset:0; pointer-events:none;
-  background-image:
-    radial-gradient(rgba(0,0,0,0.03) 1px, transparent 1px),
-    radial-gradient(rgba(0,0,0,0.02) 1px, transparent 1px);
-  background-size: 2px 2px, 3px 3px;
-  mix-blend-mode:multiply;
-  opacity:.55;
-}
-
-/* Floating dust sparkles */
-body::after{
-  content:"";
-  position:fixed; inset:0; pointer-events:none;
-  background:
-    radial-gradient(circle at 15% 30%, color-mix(in oklab, var(--rose) 55%, transparent) 0 2px, transparent 3px),
-    radial-gradient(circle at 80% 55%, color-mix(in oklab, var(--sage) 55%, transparent) 0 2px, transparent 3px),
-    radial-gradient(circle at 55% 85%, color-mix(in oklab, var(--lilac) 55%, transparent) 0 2px, transparent 3px);
-  background-size: 220px 220px, 260px 260px, 240px 240px;
-  animation: dustFloat 28s linear infinite;
-  mix-blend-mode: soft-light;
-}
-@keyframes dustFloat{
-  0% { transform: translateY(0); opacity:.5; }
-  50%{ transform: translateY(10px); opacity:.7; }
-  100%{ transform: translateY(0); opacity:.5; }
-}
-
-/* Layout */
-.container{
-  max-width: 940px;
-  margin: clamp(20px, 6vh, 60px) auto;
-  padding: 0 16px 48px;
+h1 {
+  font-size: clamp(16px, 4.5vw, 24px);
+  line-height: 1.2;
   text-align: center;
+  margin: 8px 0 14px;
 }
 
-/* Title */
-h1{
-  margin: 0 0 12px;
-  font-size: clamp(18px, 4vw, 28px);
-  letter-spacing: 1px;
-  background: linear-gradient(90deg, var(--rose), var(--lilac));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  text-shadow: 0 1px 0 rgba(255,255,255,0.7);
-  position: relative;
+/* scoreboard */
+.scorebar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+  justify-content: space-between;
 }
-h1::after{
-  content:"";
-  position:absolute; left:12%; right:12%; bottom:-8px; height:6px;
-  border-radius:999px;
-  background: linear-gradient(90deg,
-      color-mix(in oklab, var(--rose) 80%, transparent),
-      color-mix(in oklab, var(--lilac) 80%, transparent));
-  filter: blur(1px);
-}
+.badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 8px; }
+.select { max-width: 220px; }
 
-/* Scorebar */
-.scorebar{
-  display:flex; gap:10px; flex-wrap:wrap; justify-content:center; align-items:center;
-  margin: 10px auto 12px;
-}
-.badge{
-  background: var(--glass-strong);
-  backdrop-filter: blur(10px) saturate(130%);
-  -webkit-backdrop-filter: blur(10px) saturate(130%);
-  border: 1px solid rgba(255,255,255,0.9);
-  border-radius: 999px;
-  padding: 8px 12px;
-  font-size: 11px;
-  color: var(--ink);
-  box-shadow: var(--shadow-soft);
-  display:inline-flex; align-items:center; gap:8px;
-}
-.badge .dot{ width:8px; height:8px; border-radius:50%; box-shadow: 0 0 0 3px rgba(0,0,0,0.05); }
-.badge .dot.pink { background: var(--rose);  box-shadow: 0 0 0 3px color-mix(in oklab, var(--rose) 25%,  transparent); }
-.badge .dot.lilac{ background: var(--lilac); box-shadow: 0 0 0 3px color-mix(in oklab, var(--lilac) 25%, transparent); }
-.badge .dot.sage { background: var(--sage);  box-shadow: 0 0 0 3px color-mix(in oklab, var(--sage) 25%,  transparent); }
-
-/* Theme select styling */
-.select{
-  appearance: none;
-  border: 1px solid rgba(255,255,255,0.9);
-  background: var(--glass);
-  color: var(--ink);
-  font: inherit;
-  padding: 6px 30px 6px 10px;
-  border-radius: 10px;
-  box-shadow: var(--shadow-soft);
-  position: relative;
-}
-.theme-switch{ gap: 10px; }
-.theme-switch::after{
-  content: "▾";
-  margin-left: -26px;
-  pointer-events: none;
-  opacity: 0.7;
-}
-
-/* Cabinet (frame) */
-.cabinet{
-  position: relative;
-  display: inline-block;
-  margin: 14px auto 8px;
-  padding: 14px;
-  border-radius: 22px;
-  background: linear-gradient(135deg, var(--bezel-1), var(--bezel-2));
-  border: 6px solid var(--edge);
-  outline: 2px solid var(--outline);
-  box-shadow: var(--shadow-strong);
-}
-
-/* Stickers */
-.cabinet .sticker, .cabinet .sticker2{
-  position:absolute; width:36px; height:36px; border-radius:10px;
-  box-shadow: 0 6px 14px rgba(0,0,0,0.12);
-}
-.cabinet .sticker{
-  left:-8px; top:-8px; transform: rotate(-10deg);
-  background: var(--rose);
-}
-.cabinet .sticker2{
-  right:-8px; bottom:-8px; transform: rotate(8deg);
-  background: var(--lilac);
-}
-.cabinet .sticker::after{
-  content:"✶"; position:absolute; inset:0; display:grid; place-items:center;
-  color:#fff; font-size:16px; text-shadow: 0 1px 0 rgba(0,0,0,0.15);
-}
-.cabinet .sticker2::after{
-  content:"♥"; position:absolute; inset:0; display:grid; place-items:center;
-  color:#fff; font-size:16px; text-shadow: 0 1px 0 rgba(0,0,0,0.15);
-}
-
-/* Canvas */
-#gameCanvas{
-  display:block;
-  width: min(92vw, 820px);
+/* cabinet and canvas */
+.cabinet { width: 100%; max-width: 600px; margin: 12px auto; }
+#gameCanvas {
+  width: 100%;
   height: auto;
-  border-radius: 16px;
-  background: #0f0f13; /* match JS bg */
-  box-shadow:
-    inset 0 0 0 1px rgba(255,255,255,0.06),
-    inset 0 0 40px rgba(0,0,0,0.45);
-  filter: saturate(1.04) contrast(1.03);
+  display: block;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  touch-action: none;     /* stop scroll during swipe */
+  -webkit-tap-highlight-color: transparent;
 }
 
-/* Vignette + scanlines */
-.cabinet.vintage::before,
-.cabinet.vintage::after{
-  content:"";
-  position:absolute; inset:14px; border-radius:16px; pointer-events:none;
-}
-.cabinet.vintage::before{
-  box-shadow:
-    inset 0 0 120px rgba(0,0,0,0.35),
-    inset 0 0 24px rgba(255,255,255,0.05);
-}
-.cabinet.vintage::after{
-  background:
-    repeating-linear-gradient(
-      to bottom,
-      var(--cabinet-scanline-light) 0 2px,
-      var(--cabinet-scanline-dark)  2px 4px
-    );
-  mix-blend-mode: soft-light;
-  opacity: .33;
-  animation: scanFlicker 9s linear infinite;
-}
-@keyframes scanFlicker{
-  0%,100% { opacity:.32; }
-  50%     { opacity:.42; }
-}
+/* footer */
+.footer { text-align: center; font-size: clamp(12px, 3.2vw, 14px); opacity: 0.85; margin-top: 10px; }
 
-/* Footer */
-.footer{
-  margin-top: 14px;
-  color: var(--muted);
-  font-size: 10px;
-  opacity: .9;
-}
-
-/* Responsive */
-@media (max-width: 560px){
-  .container{ padding: 0 12px 36px; }
-  .cabinet{ padding: 12px; border-radius: 18px; }
-  #gameCanvas{ border-radius: 14px; }
-  .cabinet.vintage::before,
-  .cabinet.vintage::after{ inset: 12px; border-radius: 14px; }
+/* tiny tweaks on narrow phones */
+@media (max-width: 480px) {
+  .container { padding: 10px; }
+  .badge { padding: 5px 8px; }
 }
